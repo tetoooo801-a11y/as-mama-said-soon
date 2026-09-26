@@ -7,7 +7,8 @@ import styles from "./ComingSoon.module.css";
 const LAUNCH_DATE = new Date("2026-09-30T01:00:00+03:00");
 
 export default function ComingSoon() {
-  const videoRef = useRef(null);
+  const desktopVideoRef = useRef(null);
+  const mobileVideoRef = useRef(null);
   const revealRef = useRef(null);
   const [unlocked, setUnlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -17,6 +18,13 @@ export default function ComingSoon() {
     mins: "00",
     secs: "00",
   });
+
+  const getActiveVideo = () => {
+    if (typeof window !== "undefined" && window.innerWidth <= 768) {
+      return mobileVideoRef.current || desktopVideoRef.current;
+    }
+    return desktopVideoRef.current || mobileVideoRef.current;
+  };
 
   const unlock = () => {
     setUnlocked(true);
@@ -30,12 +38,14 @@ export default function ComingSoon() {
   };
 
   const toggleSound = () => {
-    if (!videoRef.current) return;
-    const nextMuted = !videoRef.current.muted;
-    videoRef.current.muted = nextMuted;
+    const active = getActiveVideo();
+    if (!active) return;
+    const nextMuted = !active.muted;
+    if (desktopVideoRef.current) desktopVideoRef.current.muted = nextMuted;
+    if (mobileVideoRef.current) mobileVideoRef.current.muted = nextMuted;
     setIsMuted(nextMuted);
     if (!nextMuted) {
-      videoRef.current.play().catch(() => {});
+      active.play().catch(() => {});
     }
   };
 
@@ -47,26 +57,64 @@ export default function ComingSoon() {
   useEffect(() => {
     document.documentElement.classList.add("locked");
 
-    const video = videoRef.current;
-    if (video) {
+    const isMobile = window.innerWidth <= 768;
+    const activeVideo = isMobile ? mobileVideoRef.current : desktopVideoRef.current;
+    const inactiveVideo = isMobile ? desktopVideoRef.current : mobileVideoRef.current;
+
+    if (inactiveVideo) {
+      inactiveVideo.pause();
+    }
+
+    let timer = null;
+
+    if (activeVideo) {
       const onEnded = () => unlock();
       const onError = () => unlock();
+      const onTimeUpdate = () => {
+        // For mobile, enforce stopping and unlocking at second 7
+        if (isMobile && activeVideo.currentTime >= 7) {
+          activeVideo.pause();
+          unlock();
+        }
+      };
 
-      video.addEventListener("ended", onEnded);
-      video.addEventListener("error", onError);
+      activeVideo.addEventListener("ended", onEnded);
+      activeVideo.addEventListener("error", onError);
+      if (isMobile) {
+        activeVideo.addEventListener("timeupdate", onTimeUpdate);
+      }
 
-      video.play().catch(() => {
+      activeVideo.play().catch(() => {
         unlock();
       });
 
-      const timer = setTimeout(() => {
+      // Timeout fallback: 7.2s for mobile, 13s for desktop
+      const timeoutMs = isMobile ? 7200 : 13000;
+      timer = setTimeout(() => {
         unlock();
-      }, 13000);
+      }, timeoutMs);
+
+      const handleResize = () => {
+        const currentlyMobile = window.innerWidth <= 768;
+        if (currentlyMobile) {
+          desktopVideoRef.current?.pause();
+          mobileVideoRef.current?.play().catch(() => {});
+        } else {
+          mobileVideoRef.current?.pause();
+          desktopVideoRef.current?.play().catch(() => {});
+        }
+      };
+
+      window.addEventListener("resize", handleResize);
 
       return () => {
-        video.removeEventListener("ended", onEnded);
-        video.removeEventListener("error", onError);
-        clearTimeout(timer);
+        activeVideo.removeEventListener("ended", onEnded);
+        activeVideo.removeEventListener("error", onError);
+        if (isMobile) {
+          activeVideo.removeEventListener("timeupdate", onTimeUpdate);
+        }
+        window.removeEventListener("resize", handleResize);
+        if (timer) clearTimeout(timer);
         document.documentElement.classList.remove("locked");
       };
     } else {
@@ -107,14 +155,28 @@ export default function ComingSoon() {
     <div className={`${styles.wrapper} ${!unlocked ? styles.locked : ""}`}>
       {/* Video Background Layer */}
       <div className={styles.videoLayer}>
+        {/* Desktop Video View */}
         <video
-          ref={videoRef}
+          ref={desktopVideoRef}
           id="introVideo"
+          className={styles.desktopVideo}
           playsInline
           muted
           autoPlay
           preload="auto"
           src="/assets/videos/coming-soon-intro.mp4"
+        />
+
+        {/* Mobile Video View (Trimmed to 7s, Portrait 9:16) */}
+        <video
+          ref={mobileVideoRef}
+          id="introVideoMobile"
+          className={styles.mobileVideo}
+          playsInline
+          muted
+          autoPlay
+          preload="auto"
+          src="/assets/videos/coming-soon-intro-mobile.mp4"
         />
       </div>
 

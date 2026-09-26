@@ -31,6 +31,23 @@
   transform: translate(-50%, -50%);
 }
 
+.desktopVideo {
+  display: block;
+}
+
+.mobileVideo {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktopVideo {
+    display: none !important;
+  }
+  .mobileVideo {
+    display: block !important;
+  }
+}
+
 .videoLayer::after {
   content: "";
   position: absolute;
