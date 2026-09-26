@@ -75,22 +75,37 @@ export default function ComingSoon() {
     let timer = null;
 
     if (activeVideo) {
-      const onEnded = () => unlock(true);
-      const onError = () => unlock(true);
+      // Keep video looping continuously in the background
+      activeVideo.loop = true;
+
+      const triggerAutoReveal = () => {
+        unlock(true);
+        // Ensure video continues playing smoothly in the background
+        if (activeVideo.paused) {
+          activeVideo.play().catch(() => {});
+        }
+      };
+
+      const onEnded = () => triggerAutoReveal();
+      const onError = () => triggerAutoReveal();
       const onTimeUpdate = () => {
-        // For mobile, enforce stopping and auto-sliding at second 7
-        if (isMobile && activeVideo.currentTime >= 7) {
-          activeVideo.pause();
-          activeVideo.removeEventListener("timeupdate", onTimeUpdate);
-          unlock(true);
+        // When video reaches end of first cycle (7s on mobile, or end on desktop), auto-reveal countdown and keep looping
+        if (isMobile) {
+          if (activeVideo.currentTime >= 6.8) {
+            activeVideo.removeEventListener("timeupdate", onTimeUpdate);
+            triggerAutoReveal();
+          }
+        } else {
+          if (activeVideo.duration && activeVideo.currentTime >= activeVideo.duration - 0.4) {
+            activeVideo.removeEventListener("timeupdate", onTimeUpdate);
+            triggerAutoReveal();
+          }
         }
       };
 
       activeVideo.addEventListener("ended", onEnded);
       activeVideo.addEventListener("error", onError);
-      if (isMobile) {
-        activeVideo.addEventListener("timeupdate", onTimeUpdate);
-      }
+      activeVideo.addEventListener("timeupdate", onTimeUpdate);
 
       activeVideo.play().catch(() => {
         unlock(true);
@@ -99,17 +114,23 @@ export default function ComingSoon() {
       // Timeout fallback: 7.2s for mobile, 13s for desktop
       const timeoutMs = isMobile ? 7200 : 13000;
       timer = setTimeout(() => {
-        unlock(true);
+        triggerAutoReveal();
       }, timeoutMs);
 
       const handleResize = () => {
         const currentlyMobile = window.innerWidth <= 768;
         if (currentlyMobile) {
           desktopVideoRef.current?.pause();
-          mobileVideoRef.current?.play().catch(() => {});
+          if (mobileVideoRef.current) {
+            mobileVideoRef.current.loop = true;
+            mobileVideoRef.current.play().catch(() => {});
+          }
         } else {
           mobileVideoRef.current?.pause();
-          desktopVideoRef.current?.play().catch(() => {});
+          if (desktopVideoRef.current) {
+            desktopVideoRef.current.loop = true;
+            desktopVideoRef.current.play().catch(() => {});
+          }
         }
       };
 
@@ -118,9 +139,7 @@ export default function ComingSoon() {
       return () => {
         activeVideo.removeEventListener("ended", onEnded);
         activeVideo.removeEventListener("error", onError);
-        if (isMobile) {
-          activeVideo.removeEventListener("timeupdate", onTimeUpdate);
-        }
+        activeVideo.removeEventListener("timeupdate", onTimeUpdate);
         window.removeEventListener("resize", handleResize);
         if (timer) clearTimeout(timer);
         document.documentElement.classList.remove("locked");
@@ -171,6 +190,7 @@ export default function ComingSoon() {
           playsInline
           muted
           autoPlay
+          loop
           preload="auto"
           src="/assets/videos/coming-soon-intro.mp4"
         />
@@ -183,6 +203,7 @@ export default function ComingSoon() {
           playsInline
           muted
           autoPlay
+          loop
           preload="auto"
           src="/assets/videos/coming-soon-intro-mobile.mp4"
         />

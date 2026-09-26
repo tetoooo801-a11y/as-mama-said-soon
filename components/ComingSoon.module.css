@@ -183,10 +183,10 @@
   justify-content: center;
   text-align: center;
   padding: 80px clamp(20px, 6vw, 60px);
-  background: rgba(6, 21, 22, 0.62);
-  -webkit-backdrop-filter: blur(26px) saturate(120%);
-  backdrop-filter: blur(26px) saturate(120%);
-  border-top: 1px solid rgba(242, 230, 220, 0.08);
+  background: rgba(6, 21, 22, 0.48);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: blur(14px) saturate(130%);
+  border-top: 1px solid rgba(242, 230, 220, 0.12);
 }
 
 .revealInner {
