@@ -10,6 +10,7 @@ export default function ComingSoon() {
   const desktopVideoRef = useRef(null);
   const mobileVideoRef = useRef(null);
   const revealRef = useRef(null);
+  const autoScrolledRef = useRef(false);
   const [unlocked, setUnlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [timeLeft, setTimeLeft] = useState({
@@ -26,15 +27,21 @@ export default function ComingSoon() {
     return desktopVideoRef.current || mobileVideoRef.current;
   };
 
-  const unlock = () => {
+  const unlock = (shouldScroll = true) => {
     setUnlocked(true);
     document.documentElement.classList.remove("locked");
+
+    if (shouldScroll && !autoScrolledRef.current) {
+      autoScrolledRef.current = true;
+      setTimeout(() => {
+        revealRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
   };
 
   const handleSkip = (e) => {
     e?.preventDefault();
-    unlock();
-    revealRef.current?.scrollIntoView({ behavior: "smooth" });
+    unlock(true);
   };
 
   const toggleSound = () => {
@@ -68,13 +75,14 @@ export default function ComingSoon() {
     let timer = null;
 
     if (activeVideo) {
-      const onEnded = () => unlock();
-      const onError = () => unlock();
+      const onEnded = () => unlock(true);
+      const onError = () => unlock(true);
       const onTimeUpdate = () => {
-        // For mobile, enforce stopping and unlocking at second 7
+        // For mobile, enforce stopping and auto-sliding at second 7
         if (isMobile && activeVideo.currentTime >= 7) {
           activeVideo.pause();
-          unlock();
+          activeVideo.removeEventListener("timeupdate", onTimeUpdate);
+          unlock(true);
         }
       };
 
@@ -85,13 +93,13 @@ export default function ComingSoon() {
       }
 
       activeVideo.play().catch(() => {
-        unlock();
+        unlock(true);
       });
 
       // Timeout fallback: 7.2s for mobile, 13s for desktop
       const timeoutMs = isMobile ? 7200 : 13000;
       timer = setTimeout(() => {
-        unlock();
+        unlock(true);
       }, timeoutMs);
 
       const handleResize = () => {
@@ -118,7 +126,7 @@ export default function ComingSoon() {
         document.documentElement.classList.remove("locked");
       };
     } else {
-      unlock();
+      unlock(true);
     }
   }, []);
 
